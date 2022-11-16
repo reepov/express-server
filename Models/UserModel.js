@@ -1,8 +1,10 @@
-const { DataTypes, UUIDV1, DATE } = require('sequelize')
-const { Sequelize } = require('sequelize');
-const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
-const { v4: uuidv4 } = require('uuid');
 var today = new Date();
+const UUIDV4 =  require('uuid');
+const { v4: uuidv4 } = require('uuid');
+const { Sequelize } = require('sequelize');
+const { DataTypes, UUIDV1, DATE } = require('sequelize')
+const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
+
 const Users = db.define("Users",
   {
     Id: {

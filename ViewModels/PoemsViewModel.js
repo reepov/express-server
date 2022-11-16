@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
-class PoemsViewModel{
-    
+
+class PoemsViewModel{ 
     constructor(PoemId, Title, Text, Likes, Views, isViewedByCurrentUser, isLikedByCurrentUser, CommentIds, AuthorId){
         this.PoemId = PoemId;
         this.Title = Title;
@@ -13,4 +13,5 @@ class PoemsViewModel{
         this.AuthorId = AuthorId;
     }
 }
+
 module.exports = PoemsViewModel;
