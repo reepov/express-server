@@ -1,8 +1,8 @@
 const multer = require('multer');
 const express = require("express");
-const PoemsRouter = express.Router();
+const UserRouter = express.Router();
 const bodyParser = require('body-parser');
-const router = require("./UserController");
+const PoemsRouter = require("./PoemsController");
 const Users = require('../Models/UserModel')
 const Poems = require('../Models/PoemsModel');
 const { Sequelize, STRING } = require('sequelize');
@@ -14,8 +14,23 @@ const upload = multer();
 Users.sync();
 Poems.sync();
 
+//   http://localhost:3333/api/User/LoginMobile?email=..password=
+UserRouter.get("/LoginMobile", function(req, res) {
+    db.sync();
+    const email = req.query.email;
+    const password = req.query.password;
+    Users.findOne({
+      where:{
+        Email: email,
+        Password: password
+      }
+    }).then(user => {
+      res.send(user.Id);
+    }).catch(res.send(""));
+});
+
 //   http://localhost:3333/api/User/GetUserById?userId=..currentUserId=
-router.get("/GetUserById", function (req, res) {
+UserRouter.get("/GetUserById", function (req, res) {
     db.sync();
     const currentUserId = req.query.currentUserId
     const userId = req.query.userId 
@@ -45,4 +60,25 @@ router.get("/GetUserById", function (req, res) {
       }).catch(err=>res.send(err));
 });
 
-module.exports = router;
+//   http://localhost:3333/api/User/RegisterMobile?email=..nickname=..password=..
+UserRouter.post("/RegisterMobile", function(req, res){
+    db.sync();
+    const email = req.query.email;
+    const nickname = req.query.nickname;
+    const password = req.query.password;
+    const today = new Date();
+    let result = true;
+    let newUser = Users.create({
+      Id: UUIDV4.v4(),
+      NickName: nickname,
+      DateOfCreate: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
+      Email: email,
+      Password: password,
+      ListOfViewsPoems: [],
+      ListOfLikedPoems: [],
+      ListOfLikedComments: []
+    }).catch(err => result = false);
+    res.send(result);
+});
+
+module.exports = UserRouter;

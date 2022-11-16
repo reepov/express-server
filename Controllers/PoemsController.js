@@ -2,7 +2,7 @@ const multer = require('multer');
 const express = require("express");
 const PoemsRouter = express.Router();
 const bodyParser = require('body-parser');
-const router = require("./UserController");
+const UserRouter = require("./UserController");
 const Users = require('../Models/UserModel')
 const Poems = require('../Models/PoemsModel');
 const { Sequelize, STRING } = require('sequelize');
@@ -54,7 +54,7 @@ PoemsRouter.post("/AuthorSendPoem", function(req, res){
         ViewersIds: [],
         CommentIds: [],
         AuthorId: userId
-    });
+    }).catch(res.send(false));
     res.send(true);
 });
 
