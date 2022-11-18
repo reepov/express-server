@@ -5,13 +5,14 @@ const bodyParser = require('body-parser');
 const UserRouter = require("./UserController");
 const Users = require('../Models/UserModel')
 const Poems = require('../Models/PoemsModel');
-const Comments = require('../Models/CommentModel');
+const Comments = require('../Models/CommentModel'); 
 const { Sequelize, STRING } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const CommentViewModel = require("../ViewModels/CommentViewModel");
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 const UUIDV4 =  require('uuid');
+const { use } = require('./UserController');
 const upload = multer();
 Users.sync();
 Poems.sync();
@@ -21,36 +22,28 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
     db.sync();
     const currentUserId = req.query.userId;
     const poemId = req.query.poemId;
-    let comms = [];
-
+    let i = 0;
     const comments = await Comments.findAll({
         where:{
             PoemId: poemId
         }
     });
-
-    const user = await Users.findOne({
-        where:{
-            Id: currentUserId
-        }
-    });
-
-    comments.forEach(item => 
-    {
-        Users.findOne({
+    const comms = [];
+    await Promise.all(comments.map(async (item) => {
+        const author = await Users.findOne({
             where: {
                 Id : item.UserId
             }
-        }).then(author =>{
-            comms.push(new CommentViewModel(
-                item.Id, author.NickName, item.Text, 
-                item.LikersIds.filter(() => true).length, 
-                item.LikersIds.indexOf(currentUserId) >= 0, 
-                item.Created, item.RepliesId, item.UpReplyId, poemId));
-            res.send(comms.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser)));
         });
+        comms.push(new CommentViewModel(
+            item.Id, author.NickName, item.Text, 
+            item.LikersIds.filter(() => true).length, 
+            item.LikersIds.indexOf(currentUserId) >= 0, 
+            item.Created, item.RepliesId, item.UpReplyId, poemId));
+    }))
+    res.send(comms.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser))); 
     }); 
-});
+    
 
 //   http://localhost:3333/api/Poems/GetCommentById?commId=..currentUserId=..
 PoemsRouter.get("/GetCommentById", async function(req, res) {
@@ -144,19 +137,23 @@ PoemsRouter.get("/GetListOfRandomPoems", async function(_req, res){
     res.send(poemsToSend.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser)));
 });
 
-//  http://localhost:3333/api/Poems/AuthorSendPoem?userId=..title=.. (+form-data calls text)
-PoemsRouter.post("/AuthorSendPoem", function(req, res){
+//  http://localhost:3333/api/Poems/AuthorSendPoem?userId=..title=.. (+form-data calls message)
+PoemsRouter.post("/AuthorSendPoem", async function(req, res){
     db.sync();
-    const Title = req.query.title
-    const userId = req.query.userId
-    const text = req.body.text.toString().split('').reverse().join('').replace(']', '')
+    const Title = req.query.title;
+    console.log(Title);
+    const userId = req.query.userId;
+    console.log(userId);
+    console.log(req.body.message);
+    const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
+    console.log(text);
     let textpoem = "";
     text.forEach(item => {
         textpoem += item + "\n";
     });
     let a = true;
-    let newPoem = Poems.create({
+    let newPoem = await Poems.create({
         Id: UUIDV4.v4(),
         Title: Title,
         Text: textpoem,
@@ -269,7 +266,7 @@ PoemsRouter.post("/SetCommentToPoem", async function(req, res){
             Id: poemId
         }
     });
-    let newComm = Comments.create({
+    let newComm = await Comments.create({
         Id: UUIDV4.v4(),
         UserId: userId,
         Text: text,
@@ -278,7 +275,7 @@ PoemsRouter.post("/SetCommentToPoem", async function(req, res){
         RepliesId: [],
         UpReplyId: null,
         PoemId: poemId
-    })
+    });
     poem.CommentIds = [...poem.CommentIds, newComm.Id];
     poem.save();
     res.send(true);
