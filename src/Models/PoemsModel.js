@@ -11,7 +11,7 @@ const Poems = db.define("Poems",
       type: DataTypes.STRING,
       primaryKey: true,
       allowNull: false,
-      default : DataTypes.UUIDV4
+      default : DataTypes.UUIDV4.v4
     },
     Title: {
       type: DataTypes.STRING,
@@ -19,7 +19,7 @@ const Poems = db.define("Poems",
       default: "Без названия"
     },
     Text: {
-        type: DataTypes.STRING,
+        type: DataTypes.TEXT,
         allowNull: false,
         default: "Empty text"
       },
@@ -38,8 +38,11 @@ const Poems = db.define("Poems",
     AuthorId: {
         type: DataTypes.STRING,
         allowNull: false,
-        references: 'Users',
-        referenceKey: 'Id'
+
+        references: {
+          model: 'Users',
+          key: 'Id'
+        }
       }
   },
   {

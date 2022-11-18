@@ -3,8 +3,9 @@ const express = require("express");
 const UserRouter = express.Router();
 const bodyParser = require('body-parser');
 const PoemsRouter = require("./PoemsController");
-const Users = require('../Models/UserModel')
+const Users = require('../Models/UserModel');
 const Poems = require('../Models/PoemsModel');
+const Comments = require('../Models/CommentModel')
 const { Sequelize, STRING } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
@@ -15,18 +16,18 @@ Users.sync();
 Poems.sync();
 
 //   http://localhost:3333/api/User/LoginMobile?email=..password=
-UserRouter.get("/LoginMobile", function(req, res) {
-    db.sync();
+UserRouter.get("/LoginMobile", async function(req, res) {
+    await db.sync();
     const email = req.query.email;
     const password = req.query.password;
-    Users.findOne({
+    let result;
+    const user = await Users.findOne({
       where:{
         Email: email,
         Password: password
       }
-    }).then(user => {
-      res.send(user.Id);
-    }).catch(res.send(""));
+    });
+    res.send(user.Id);
 });
 
 //   http://localhost:3333/api/User/GetUserById?userId=..currentUserId=
@@ -39,7 +40,6 @@ UserRouter.get("/GetUserById", function (req, res) {
            Id: userId
         }
     }).then(users=>{
-        let user = users;
         Poems.findAll({
           where:{
             AuthorId: userId
@@ -55,7 +55,7 @@ UserRouter.get("/GetUserById", function (req, res) {
               item.LikersIds.indexOf(currentUserId) >= 0, 
               item.CommentIds, userId));
           });
-          res.send(new UserViewModel(user.Id, user.NickName, poemsToSend));
+          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend));
         })    
       }).catch(err=>res.send(err));
 });

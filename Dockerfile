@@ -4,8 +4,10 @@ WORKDIR /server
 
 COPY package.json yarn.lock ./
 
-RUN rm -rf node_modules && yarn install --frozen-lockfile && yarn cache clean
+RUN rm -rf node_modules && yarn install && yarn cache clean
 
 COPY ./src ./src
+
+EXPOSE 3333
 
 CMD ["node", "./src/index.js"]

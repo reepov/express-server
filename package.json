@@ -17,5 +17,6 @@
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.25.5",
     "uuid": "^9.0.0"
-  }
+  },
+  "packageManager": "yarn@3.3.0"
 }

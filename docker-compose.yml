@@ -1,11 +1,11 @@
 version: '3'
 services:
   backend:
-    image: "reepovv/poemsserver:latest"
+    image: "reepovv/poems-server-js:latest"
     container_name: backend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "80:3333"
     networks:
       - app-network
   postgres:

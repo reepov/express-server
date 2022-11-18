@@ -16,8 +16,10 @@ const Comments = db.define("Comments",
     UserId: {
         type: DataTypes.STRING,
         allowNull: false,
-        references: 'Users',
-        referenceKey: 'Id'
+        references: {
+          model:'Users',
+          key: 'Id'
+        }
       },
     Text: {
         type: DataTypes.STRING,
@@ -40,14 +42,18 @@ const Comments = db.define("Comments",
     UpReplyId: {
       type: DataTypes.STRING,
       allowNull: true,
-      references: 'Comments',
-      referenceKey: 'Id'
+      references: {
+        model:'Comments',
+        key: 'Id'
+      }
     },
     PoemId: {
         type: DataTypes.STRING,
         allowNull: true,
-        references: 'Poems',
-        referenceKey: 'Id'  
+        references: {
+          model:'Poems',
+          key: 'Id'
+        }
       },
     
   },

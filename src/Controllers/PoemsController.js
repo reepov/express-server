@@ -5,13 +5,13 @@ const bodyParser = require('body-parser');
 const UserRouter = require("./UserController");
 const Users = require('../Models/UserModel')
 const Poems = require('../Models/PoemsModel');
+const Comments = require('../Models/CommentModel');
 const { Sequelize, STRING } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const CommentViewModel = require("../ViewModels/CommentViewModel");
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 const UUIDV4 =  require('uuid');
-const Comments = require('../Models/CommentModel');
 const upload = multer();
 Users.sync();
 Poems.sync();
