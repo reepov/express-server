@@ -14,6 +14,7 @@ const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/post
 const UUIDV4 =  require('uuid');
 const { use } = require('./UserController');
 const upload = multer();
+const Op = Sequelize.Op;
 Users.sync();
 Poems.sync();
 
@@ -23,13 +24,26 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
     const currentUserId = req.query.userId;
     const poemId = req.query.poemId;
     let i = 0;
-    const comments = await Comments.findAll({
+    const wholeMainComments = await Comments.findAll({
         where:{
+            PoemId: poemId,
+            UpReplyId:{
+                [Op.is]: null
+            }
+        }
+    });
+    const wholeReplyComments = await Comments.findAll({
+        where: {
+            UpReplyId: {
+                [Op.not]: null
+            },
             PoemId: poemId
         }
     });
     const comms = [];
-    await Promise.all(comments.map(async (item) => {
+    for(let i = 0; i < wholeMainComments.length; i++)
+    {
+        let item = wholeMainComments[i]
         const author = await Users.findOne({
             where: {
                 Id : item.UserId
@@ -40,9 +54,25 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
             item.LikersIds.filter(() => true).length, 
             item.LikersIds.indexOf(currentUserId) >= 0, 
             item.Created, item.RepliesId, item.UpReplyId, poemId));
-    }))
-    res.send(comms.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser))); 
-    }); 
+        for(let j = 0; j < wholeReplyComments.length; j++)
+        {
+            let replyItem = wholeReplyComments[j];
+            if (replyItem.UpReplyId === item.Id) {
+                const replyAuthor = await Users.findOne({
+                    where: {
+                        Id : replyItem.UserId
+                    }
+                });
+                comms.push(new CommentViewModel(
+                    replyItem.Id, replyAuthor.NickName, replyItem.Text, 
+                    replyItem.LikersIds.filter(() => true).length, 
+                    replyItem.LikersIds.indexOf(currentUserId) >= 0, 
+                    replyItem.Created, replyItem.RepliesId, replyItem.UpReplyId, poemId));
+            }
+        }
+    };
+    if(comms.length == wholeMainComments.length + wholeReplyComments.length) res.send(comms); 
+});
     
 
 //   http://localhost:3333/api/Poems/GetCommentById?commId=..currentUserId=..
@@ -170,7 +200,7 @@ PoemsRouter.post("/UpdatePoem", async function(req, res) {
         db.sync();
         const poemId = req.query.poemId;
         const title = req.query.title;
-        const text = req.body.text.toString().split('').reverse().join('').replace(']', '')
+        const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
         let textpoem = "";
         text.forEach(item => {
@@ -194,6 +224,11 @@ PoemsRouter.post("/DeletePoem", async function(req, res){
         Poems.destroy({
             where: {
                 Id: poemId
+            }
+        });
+        Comments.destroy({
+            where: {
+                PoemId: poemId
             }
         });
         res.send(true);
@@ -285,7 +320,7 @@ PoemsRouter.post("/SetCommentToPoem", async function(req, res){
 PoemsRouter.post("/RemoveCommentFromPoem", async function(req, res){
     db.sync();
     const commentId = req.query.commentId;
-    let a = true;
+    let a = "";
     let comment = await Comments.findOne({
         where:{
             Id: commentId
@@ -295,20 +330,41 @@ PoemsRouter.post("/RemoveCommentFromPoem", async function(req, res){
         where:{
             Id: comment.PoemId
         }
-    }).then(poem=>{
-        let arr_1 = [...poem.CommentIds];
-        const array_1 = arr_1.filter(function (id) {
-            return id !== commentId;
-        });
-        poem.CommentIds = [...array_1];
-        poem.save();
-    }).catch(a = false);
-    Comments.destroy({
-        where:{
-            Id: commentId
+    }).then(async poem=>{
+        if(comment.UpReplyId !== null){
+            const upReply = await Comments.findOne({
+                where: {
+                    Id: comment.UpReplyId
+                }
+            });
+            Comments.destroy({
+                where:{
+                    Id: commentId
+                }
+            });
+            let arr_1 = [...poem.CommentIds];
+            const array_1 = arr_1.filter(function (id) {
+                return id !== commentId;
+            });
+            poem.CommentIds = [...array_1];
+
+            let arr = [...upReply.RepliesId]
+            const array = arr.filter(function(id){
+                return id !== commentId;
+            })
+            upReply.RepliesId = [...array];
+            upReply.save();
+            poem.save();
+            res.send("Ответ");
+        }
+        else{
+            comment.Text = "Комментарий удален пользователем.";
+            comment.LikersIds = [];
+            comment.Created = "-1";
+            comment.save();
+            res.send("Главный");
         }
     });
-    res.send(a);
 });
 
 //   http://localhost:3333/api/Poems/SetLikeToComment?userId=..&commentId=..
@@ -342,34 +398,31 @@ PoemsRouter.post("/RemoveLikeFromComment", async function(req, res){
     db.sync();
     const userId = req.query.userId;
     const commentId = req.query.commentId;
-    let a = true;
-    Users.findOne({
+    const user = await Users.findOne({
         where: {
             Id: userId
         }
-    }).then(user => {
-        Comments.findOne({
-            where:{
-                Id: commentId
-            }
-        }).then(comment => {
-            let arr_2 = [...user.ListOfLikedComments];
-            const array_2 = arr_2.filter(function (id) {
-                return id !== commentId;
-            });
-            user.ListOfLikedComments = [...array_2];
+    });
+    const comment = await Comments.findOne({
+        where:{
+            Id: commentId
+        }
+    });
+    let arr_2 = [...user.ListOfLikedComments];
+    const array_2 = arr_2.filter(function (Id) {
+        return Id !== commentId;
+    });
+    user.ListOfLikedComments = [...array_2];
 
-            let arr = [...comment.LikersIds];
-            const array = arr.filter(function(id){
-                return id !== userId;
-            });
-            comment.LikersIds = [...array];
+    let arr = [...comment.LikersIds];
+    const array = arr.filter(function(Id){
+        return Id !== userId;
+    });
+    comment.LikersIds = [...array];
 
-            user.save();
-            comment.save();
-        });
-    }).catch(a = false);
-    res.send(a);
+    user.save();
+    comment.save();
+    res.send(true);
 });
 
 //   http://localhost:3333/api/Poems/SetReplyToComment?commentId=..&userId=..&text=..
@@ -384,6 +437,14 @@ PoemsRouter.post("/SetReplyToComment", async function(req, res){
             Id: commentId
         }
     });
+    const poem = await Poems.findOne({
+        where: {
+            Id: comment.PoemId
+        }
+    });
+    var replyId;
+    if(comment.UpReplyId !== null) replyId = comment.UpReplyId;
+    else replyId = comment.Id; 
     let newComm = await Comments.create({
         Id: UUIDV4.v4(),
         UserId: userId,
@@ -391,9 +452,11 @@ PoemsRouter.post("/SetReplyToComment", async function(req, res){
         LikersIds: [],
         Created: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
         RepliesId: [],
-        UpReplyId: comment.Id,
+        UpReplyId: replyId,
         PoemId: comment.PoemId
     });
+    poem.CommentIds = [...poem.CommentIds, newComm.Id];
+    poem.save();
     comment.RepliesId = [...comment.RepliesId, newComm.Id];
     comment.save();
     res.send(true);
