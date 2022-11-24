@@ -53,7 +53,7 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
             item.Id, author.NickName, item.Text, 
             item.LikersIds.filter(() => true).length, 
             item.LikersIds.indexOf(currentUserId) >= 0, 
-            item.Created, item.RepliesId, item.UpReplyId, poemId));
+            item.Created, item.RepliesId, item.UpReplyId, poemId, author.Id));
         for(let j = 0; j < wholeReplyComments.length; j++)
         {
             let replyItem = wholeReplyComments[j];
@@ -67,7 +67,7 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
                     replyItem.Id, replyAuthor.NickName, replyItem.Text, 
                     replyItem.LikersIds.filter(() => true).length, 
                     replyItem.LikersIds.indexOf(currentUserId) >= 0, 
-                    replyItem.Created, replyItem.RepliesId, replyItem.UpReplyId, poemId));
+                    replyItem.Created, replyItem.RepliesId, replyItem.UpReplyId, poemId, replyAuthor.Id));
             }
         }
     };
@@ -95,16 +95,20 @@ PoemsRouter.get("/GetCommentById", async function(req, res) {
             res.send(new CommentViewModel(comment.Id, user.NickName, 
                 comment.Text, comment.LikersIds.filter(() => true).length, 
                 comment.LikersIds.indexOf(currentId) >= 0, comment.Created, 
-                comment.RepliesId, comment.UpReplyId, comment.PoemId));
+                comment.RepliesId, comment.UpReplyId, comment.PoemId, user.Id));
         }); 
 });
 
 //   http://localhost:3333/api/Poems/GetAllPoemsByAuthorId?authorId=..currentUserId=..
-PoemsRouter.get("/GetAllPoemsByAuthorId", function(req, res){
+PoemsRouter.get("/GetAllPoemsByAuthorId", async function(req, res){
         db.sync();
         const authorId = req.query.authorId;
         const currentUserId = req.query.currentUserId;
-
+        const user = await Users.findOne({
+            where: {
+                Id: authorId
+            }
+        });
         Poems.findAll({
             where: {
                 AuthorId: authorId
@@ -113,15 +117,16 @@ PoemsRouter.get("/GetAllPoemsByAuthorId", function(req, res){
             {
                 let poemsToSend = [];
                 poems.forEach(item => {
+                    
                     poemsToSend.push(new PoemsViewModel(
                         item.Id, item.Title, item.Text, 
                         item.LikersIds.filter(() => true).length, 
                         item.ViewersIds?.filter(() => true).length, 
                         item.ViewersIds?.indexOf(currentUserId) >= 0, 
                         item.LikersIds.indexOf(currentUserId) >= 0, 
-                        item.CommentIds, item.AuthorId));
+                        item.CommentIds, item.AuthorId, item.Created, user.NickName, item.Description));
                 });
-                res.send(poemsToSend);
+                res.send(poemsToSend.sort((a, b) => Number(a.isViewedByCurrentUser) - Number(b.isViewedByCurrentUser)));
             });
 });
 
@@ -136,13 +141,20 @@ PoemsRouter.get("/GetPoemById", function(req, res){
                 Id: poemId
             }
         }).then(item => {
-            res.send(new PoemsViewModel(
-                item.Id, item.Title, item.Text, 
-                item.LikersIds.filter(() => true).length, 
-                item.ViewersIds?.filter(() => true).length, 
-                item.ViewersIds?.indexOf(currentUserId) >= 0, 
-                item.LikersIds.indexOf(currentUserId) >= 0, 
-                item.CommentIds, item.AuthorId));
+            Users.findOne({
+                where: {
+                    Id: item.AuthorId
+                }
+            }).then(user => {
+                res.send(new PoemsViewModel(
+                    item.Id, item.Title, item.Text, 
+                    item.LikersIds.filter(() => true).length, 
+                    item.ViewersIds?.filter(() => true).length, 
+                    item.ViewersIds?.indexOf(currentUserId) >= 0, 
+                    item.LikersIds.indexOf(currentUserId) >= 0, 
+                    item.CommentIds, item.AuthorId, item.Created, user.NickName, item.Description));
+            });
+            
         });
 });
 
@@ -155,16 +167,66 @@ PoemsRouter.get("/GetListOfRandomPoems", async function(_req, res){
         order: Sequelize.literal('random()')
     });
     let poemsToSend = [];
-    poems.forEach(item => {
-        poemsToSend.push(new PoemsViewModel(
-            item.Id, item.Title, item.Text, 
-            item.LikersIds.filter(() => true).length, 
-            item.ViewersIds?.filter(() => true).length, 
-            item.ViewersIds?.indexOf(currentUserId) >= 0, 
-            item.LikersIds.indexOf(currentUserId) >= 0, 
-            item.CommentIds, item.AuthorId));
+    for(let i = 0; i < poems.length; i++)
+    {
+        let user = await Users.findOne({
+            where: {
+                Id: poems[i].AuthorId
+            }
         });
-    res.send(poemsToSend.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser)));
+        poemsToSend.push(new PoemsViewModel(
+            poems[i].Id, poems[i].Title, poems[i].Text, 
+            poems[i].LikersIds.filter(() => true).length, 
+            poems[i].ViewersIds?.filter(() => true).length, 
+            poems[i].ViewersIds?.indexOf(currentUserId) >= 0, 
+            poems[i].LikersIds.indexOf(currentUserId) >= 0, 
+            poems[i].CommentIds, poems[i].AuthorId, poems[i].Created, user.NickName, poems[i].Description));
+    };
+    res.send(poemsToSend.sort((a, b) => Number(a.isViewedByCurrentUser) - Number(b.isViewedByCurrentUser)));
+});
+
+PoemsRouter.get("/GetListOfSubscribedPoems", async function(_req, res){
+    db.sync();
+    const currentUserId = _req.query.userId;
+    let poems = []
+    const poemsToSend = [];
+    await Users.findAll({
+        where: {
+            SubscribersIds : {[Op.contains] : [currentUserId]}
+        }
+    }).then(async mySubs => {
+        for (let i = 0; i < mySubs.length; i++){
+            let p = await Poems.findAll({
+                order: Sequelize.literal('random()'),
+                where: {
+                    AuthorId: mySubs[i].Id
+                }
+            });
+            poems = [...poems, ...p];
+        }
+        for (let i = poems.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var temp = poems[i];
+            poems[i] = poems[j];
+            poems[j] = temp;
+        }
+        for(let i = 0; i < poems.length; i++)
+        {
+            let user = await Users.findOne({
+                where:{
+                    Id: poems[i].AuthorId
+                }
+            });
+            poemsToSend.push(new PoemsViewModel(
+                poems[i].Id, poems[i].Title, poems[i].Text, 
+                poems[i].LikersIds.filter(() => true).length, 
+                poems[i].ViewersIds?.filter(() => true).length, 
+                poems[i].ViewersIds?.indexOf(currentUserId) >= 0, 
+                poems[i].LikersIds.indexOf(currentUserId) >= 0, 
+                poems[i].CommentIds, poems[i].AuthorId, poems[i].Created, user.NickName, poems[i].Description));
+        }
+        res.send(poemsToSend.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser)));
+    });
 });
 
 //  http://localhost:3333/api/Poems/AuthorSendPoem?userId=..title=.. (+form-data calls message)
@@ -172,9 +234,9 @@ PoemsRouter.post("/AuthorSendPoem", async function(req, res){
     db.sync();
     const Title = req.query.title;
     console.log(Title);
+    let today = new Date();
     const userId = req.query.userId;
-    console.log(userId);
-    console.log(req.body.message);
+    const description = req.query.description
     const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
     console.log(text);
@@ -190,7 +252,9 @@ PoemsRouter.post("/AuthorSendPoem", async function(req, res){
         LikersIds: [],
         ViewersIds: [],
         CommentIds: [],
-        AuthorId: userId
+        AuthorId: userId,
+        Created: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear(),
+        Description: description
     }).catch(a = false);
     res.send(a);
 });
@@ -200,6 +264,7 @@ PoemsRouter.post("/UpdatePoem", async function(req, res) {
         db.sync();
         const poemId = req.query.poemId;
         const title = req.query.title;
+        const description = req.query.description
         const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
         let textpoem = "";
@@ -213,6 +278,7 @@ PoemsRouter.post("/UpdatePoem", async function(req, res) {
         });
         poem.Text = textpoem;
         poem.Title = title;
+        poem.Description = description;
         poem.save();
         res.send(true);
 });
@@ -462,34 +528,25 @@ PoemsRouter.post("/SetReplyToComment", async function(req, res){
     res.send(true);
 });
 
-//   http://localhost:3333/api/Poems/RemoveReply?replyId=..
-PoemsRouter.post("/RemoveReply", async function(req, res){
+PoemsRouter.post("/SetViewToPoem", async function(req, res) {
     db.sync();
-    const replyId = req.query.replyId;
+    const poemId = req.query.poemId;
+    const userId = req.query.userId;
 
-    Comments.findOne({
-        where:{
-            Id: replyId
+    const poem = await Poems.findOne({
+        where: {
+            Id: poemId
         }
-    }).then(reply => {
-        Comments.findOne({
-            where:{
-                Id: reply.UpReplyId
-            }
-        }).then(main => {
-            let arr = [...main.RepliesId];
-            const array = arr.filter(function(id){
-                return id !== reply.Id;
-            });
-            main.RepliesId = [...array];
-            main.save();
-            Comments.destroy({
-                where:{
-                    Id: reply.Id
-                }
-            });
-        })
-    });
+    })
+    const user = await Users.findOne({
+        where:{
+            Id: userId
+        }
+    })
+    poem.ViewersIds = [...poem.ViewersIds, userId];
+    user.ListOfViewedPoems = [...user.ListOfViewedPoems, poemId];
+    poem.save();
+    user.save();
     res.send(true);
 });
 

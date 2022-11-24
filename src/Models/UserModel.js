@@ -42,7 +42,11 @@ const Users = db.define("Users",
     Password: {
         type: DataTypes.STRING,
         allowNull: false
-      }
+      },
+    SubscribersIds: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true
+    }
   },
   {
     timestamps: false

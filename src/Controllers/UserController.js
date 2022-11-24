@@ -31,11 +31,11 @@ UserRouter.get("/LoginMobile", async function(req, res) {
 });
 
 //   http://localhost:3333/api/User/GetUserById?userId=..currentUserId=
-UserRouter.get("/GetUserById", function (req, res) {
+UserRouter.get("/GetUserById", async function (req, res) {
     db.sync();
     const currentUserId = req.query.currentUserId
     const userId = req.query.userId 
-    Users.findOne({
+    await Users.findOne({
         where: {
            Id: userId
         }
@@ -53,9 +53,14 @@ UserRouter.get("/GetUserById", function (req, res) {
               item.ViewersIds?.filter(() => true).length, 
               item.ViewersIds?.indexOf(currentUserId) >= 0, 
               item.LikersIds.indexOf(currentUserId) >= 0, 
-              item.CommentIds, userId));
+              item.CommentIds, userId, item.Created, users.NickName, item.Description));
           });
-          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend));
+          if (users.SubscribersIds === null) 
+          {
+            users.SubscribersIds = [];
+            users.save();
+          }
+          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend, users.SubscribersIds, users.SubscribersIds.indexOf(currentUserId) >= 0));
         })    
       }).catch(err=>res.send(err));
 });
@@ -76,9 +81,34 @@ UserRouter.post("/RegisterMobile", function(req, res){
       Password: password,
       ListOfViewsPoems: [],
       ListOfLikedPoems: [],
-      ListOfLikedComments: []
+      ListOfLikedComments: [],
+      SubscribersIds: []
     }).catch(err => result = false);
     res.send(result);
 });
 
-module.exports = UserRouter;
+UserRouter.post("/SubscribeToUser", async function(req, res){
+  db.sync();
+  const userId = req.query.userId;
+  const subscriberId = req.query.currentUserId;
+
+  const author = await Users.findOne({
+    where: {
+      Id: userId
+    }
+  });
+  if(author.SubscribersIds === null) author.SubscribersIds = [];
+  const subs = [...author.SubscribersIds]
+  if (subs.indexOf(subscriberId) < 0) author.SubscribersIds = [...author.SubscribersIds, subscriberId]
+  else {
+    let arr = [...author.SubscribersIds];
+    const array = arr.filter(function (id) {
+        return id !== subscriberId;
+    });
+    author.SubscribersIds = [...array];
+  }
+  author.save();
+  res.send([...author.SubscribersIds].indexOf(subscriberId) >= 0)
+});
+
+module.exports = UserRouter;  

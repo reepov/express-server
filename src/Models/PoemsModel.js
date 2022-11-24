@@ -23,6 +23,11 @@ const Poems = db.define("Poems",
         allowNull: false,
         default: "Empty text"
       },
+    Created: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      default: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes()
+    },
     LikersIds: {
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true
@@ -43,7 +48,11 @@ const Poems = db.define("Poems",
           model: 'Users',
           key: 'Id'
         }
-      }
+      },
+    Description: {
+      type: DataTypes.STRING,
+      allowNull: true
+    }
   },
   {
     timestamps: false
