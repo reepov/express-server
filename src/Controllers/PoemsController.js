@@ -543,8 +543,8 @@ PoemsRouter.post("/SetViewToPoem", async function(req, res) {
             Id: userId
         }
     })
-    poem.ViewersIds = [...poem.ViewersIds, userId];
-    user.ListOfViewedPoems = [...user.ListOfViewedPoems, poemId];
+    if([...poem.ViewersIds].indexOf(userId) < 0) { poem.ViewersIds = [...poem.ViewersIds, userId]; }
+    if([...user.ListOfViewsPoems].indexOf(poemId) < 0) {user.ListOfViewsPoems = [...user.ListOfViewsPoems, poemId];}
     poem.save();
     user.save();
     res.send(true);
