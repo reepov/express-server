@@ -13,6 +13,7 @@ const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/post
 const UUIDV4 =  require('uuid');
 const upload = multer();
 var MD5 = require("crypto-js/md5");
+const Op = Sequelize.Op;
 
 Users.sync();
 Poems.sync();
@@ -36,7 +37,51 @@ UserRouter.get("/LoginMobile", async function(req, res) {
 UserRouter.get("/GetUserById", async function (req, res) {
     db.sync();
     const currentUserId = req.query.currentUserId
-    const userId = req.query.userId 
+    const userId = req.query.userId
+    let viewedsend = [];
+    let likedsend = [];
+    await Poems.findAll({
+      where:
+      {
+        LikersIds : {[Op.contains] : [userId]}
+      }
+    }).then(liked => {
+      liked.forEach(async item => {
+        let author = await Users.findOne({
+          where:{
+            Id: item.AuthorId
+          }
+        });
+        likedsend.push(new PoemsViewModel(
+          item.Id, item.Title, item.Text, 
+          item.LikersIds.filter(() => true).length, 
+          item.ViewersIds?.filter(() => true).length, 
+          item.ViewersIds?.indexOf(currentUserId) >= 0, 
+          item.LikersIds.indexOf(currentUserId) >= 0, 
+          item.CommentIds, userId, item.Created, author.NickName, item.Description))
+      })
+    })
+    const viewed = await Poems.findAll({
+      where:{
+        ViewersIds : {[Op.contains] : [userId]}
+      }
+    }).then(viewed => {
+      
+      viewed.forEach(async item => {
+        let author = await Users.findOne({
+          where:{
+            Id: item.AuthorId
+          }
+        });
+        viewedsend.push(new PoemsViewModel(
+          item.Id, item.Title, item.Text, 
+          item.LikersIds.filter(() => true).length, 
+          item.ViewersIds?.filter(() => true).length, 
+          item.ViewersIds?.indexOf(currentUserId) >= 0, 
+          item.LikersIds.indexOf(currentUserId) >= 0, 
+          item.CommentIds, userId, item.Created, author.NickName, item.Description))
+      })
+    })
     await Users.findOne({
         where: {
            Id: userId
@@ -62,7 +107,7 @@ UserRouter.get("/GetUserById", async function (req, res) {
             users.SubscribersIds = [];
             users.save();
           }
-          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend, users.SubscribersIds, users.SubscribersIds.indexOf(currentUserId) >= 0));
+          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend, users.SubscribersIds, users.SubscribersIds.indexOf(currentUserId) >= 0, likedsend, viewedsend));
         })    
       }).catch(err=>res.send(err));
 });
