@@ -12,6 +12,8 @@ const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 const UUIDV4 =  require('uuid');
 const upload = multer();
+var MD5 = require("crypto-js/md5");
+
 Users.sync();
 Poems.sync();
 
@@ -20,11 +22,11 @@ UserRouter.get("/LoginMobile", async function(req, res) {
     await db.sync();
     const email = req.query.email;
     const password = req.query.password;
-    let result;
+    const passwordHash = MD5(password.toString()).toString();
     const user = await Users.findOne({
       where:{
         Email: email,
-        Password: password
+        Password: passwordHash
       }
     });
     res.send(user.Id);
