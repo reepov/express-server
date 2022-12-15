@@ -1,5 +1,6 @@
 const multer = require('multer');
 const express = require("express");
+const nodemailer = require("nodemailer")
 const UserRouter = express.Router();
 const bodyParser = require('body-parser');
 const PoemsRouter = require("./PoemsController");
@@ -112,26 +113,49 @@ UserRouter.get("/GetUserById", async function (req, res) {
       }).catch(err=>res.send(err));
 });
 
-//   http://localhost:3333/api/User/RegisterMobile?email=..nickname=..password=..
-UserRouter.post("/RegisterMobile", function(req, res){
+//   http://localhost:3333/api/User/RegisterMobile?email=
+UserRouter.post("/RegisterMobile", async function(req, res){
     db.sync();
     const email = req.query.email;
-    const nickname = req.query.nickname;
-    const password = req.query.password;
-    const today = new Date();
-    let result = true;
-    let newUser = Users.create({
-      Id: UUIDV4.v4(),
-      NickName: nickname,
-      DateOfCreate: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
-      Email: email,
-      Password: password,
-      ListOfViewsPoems: [],
-      ListOfLikedPoems: [],
-      ListOfLikedComments: [],
-      SubscribersIds: []
-    }).catch(err => result = false);
-    res.send(result);
+    let code = Math.ceil(Math.random() * 8999 + 1000).toString();
+    let transporter = nodemailer.createTransport({
+      port: 465,               // true for 465, false for other ports
+      host: "smtp.yandex.ru",
+      auth: {
+        user: 'reepov@yandex.ru',
+        pass: 'mxqjvyhptstusnji',
+      },
+      secure: true
+    })
+    let resultat = transporter.sendMail({
+      from: 'reepov@yandex.ru',
+      to: email,
+      subject: 'Регистрация в приложении POEMS',
+      text: 'Для окончания регистрации введите в приложении код: ' + code,
+    })
+    res.send(code)
+});
+
+UserRouter.post("/EndRegisterMobile", async function(req, res){
+  db.sync();
+  const email = req.query.email;
+  const nickname = req.query.nickname;
+  const password = req.query.password;
+  const code = req.query.code;
+  const today = new Date();
+  let result = true;
+  let newUser = Users.create({
+    Id: UUIDV4.v4(),
+    NickName: nickname,
+    DateOfCreate: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
+    Email: email,
+    Password: MD5(password.toString()).toString(),
+    ListOfViewsPoems: [],
+    ListOfLikedPoems: [],
+    ListOfLikedComments: [],
+    SubscribersIds: []
+  }).catch(err => result = false);
+  res.send(result);
 });
 
 UserRouter.post("/SubscribeToUser", async function(req, res){
