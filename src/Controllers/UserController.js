@@ -1,6 +1,7 @@
 const multer = require('multer');
 const express = require("express");
 const nodemailer = require("nodemailer")
+const moment = require("moment");
 const UserRouter = express.Router();
 const bodyParser = require('body-parser');
 const PoemsRouter = require("./PoemsController");
@@ -12,7 +13,9 @@ const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 const UUIDV4 =  require('uuid');
-const upload = multer();
+const upload = multer({
+  limits: { fieldSize: 25 * 1024 * 1024 }
+})
 var MD5 = require("crypto-js/md5");
 const Op = Sequelize.Op;
 
@@ -31,7 +34,8 @@ UserRouter.get("/LoginMobile", async function(req, res) {
         Password: passwordHash
       }
     });
-    res.send(user.Id);
+    if (user != null) res.send(user.Id);
+    else res.send("false");
 });
 
 //   http://localhost:3333/api/User/GetUserById?userId=..currentUserId=
@@ -108,7 +112,7 @@ UserRouter.get("/GetUserById", async function (req, res) {
             users.SubscribersIds = [];
             users.save();
           }
-          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend, users.SubscribersIds, users.SubscribersIds.indexOf(currentUserId) >= 0, likedsend, viewedsend));
+          res.send(new UserViewModel(users.Id, users.NickName, poemsToSend, users.SubscribersIds, users.SubscribersIds.indexOf(currentUserId) >= 0, likedsend, viewedsend, users.Photo));
         })    
       }).catch(err=>res.send(err));
 });
@@ -117,23 +121,32 @@ UserRouter.get("/GetUserById", async function (req, res) {
 UserRouter.post("/RegisterMobile", async function(req, res){
     db.sync();
     const email = req.query.email;
-    let code = Math.ceil(Math.random() * 8999 + 1000).toString();
-    let transporter = nodemailer.createTransport({
-      port: 465,               // true for 465, false for other ports
-      host: "smtp.yandex.ru",
-      auth: {
-        user: 'reepov@yandex.ru',
-        pass: 'mxqjvyhptstusnji',
-      },
-      secure: true
+    Users.findOne({
+      where:{
+        Email: email
+      }
+    }).then(user => {
+      if (user != null) res.send("exists");
+      else{
+        let code = Math.ceil(Math.random() * 8999 + 1000).toString();
+        let transporter = nodemailer.createTransport({
+          port: 465,               // true for 465, false for other ports
+          host: "smtp.yandex.ru",
+          auth: {
+            user: 'reepov@yandex.ru',
+            pass: 'mxqjvyhptstusnji',
+          },
+          secure: true
+        })
+        let resultat = transporter.sendMail({
+          from: 'reepov@yandex.ru',
+          to: email,
+          subject: 'Регистрация в приложении POEMS',
+          text: 'Для окончания регистрации введите в приложении код: ' + code,
+        })
+        res.send(code)
+      }
     })
-    let resultat = transporter.sendMail({
-      from: 'reepov@yandex.ru',
-      to: email,
-      subject: 'Регистрация в приложении POEMS',
-      text: 'Для окончания регистрации введите в приложении код: ' + code,
-    })
-    res.send(code)
 });
 
 UserRouter.post("/EndRegisterMobile", async function(req, res){
@@ -144,10 +157,11 @@ UserRouter.post("/EndRegisterMobile", async function(req, res){
   const code = req.query.code;
   const today = new Date();
   let result = true;
+  let date = moment().format("DD.MM.YYYY");
   let newUser = Users.create({
     Id: UUIDV4.v4(),
     NickName: nickname,
-    DateOfCreate: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
+    DateOfCreate: date,
     Email: email,
     Password: MD5(password.toString()).toString(),
     ListOfViewsPoems: [],
@@ -182,4 +196,18 @@ UserRouter.post("/SubscribeToUser", async function(req, res){
   res.send([...author.SubscribersIds].indexOf(subscriberId) >= 0)
 });
 
+UserRouter.post("/SetAvatarToUser", async function(req, res) {
+  db.sync()
+  const currentUserId = req.query.currentUserId
+  const array = req.body.array
+
+  let user = await Users.findOne({
+    where:{
+      Id: currentUserId
+    }
+  });
+  user.Photo = array;
+  user.save();
+  res.send(true);
+});
 module.exports = UserRouter;  

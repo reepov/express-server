@@ -2,6 +2,7 @@ var today = new Date();
 const UUIDV4 =  require('uuid');
 const { v4: uuidv4 } = require('uuid');
 const { Sequelize } = require('sequelize');
+const moment = require("moment");
 const { DataTypes, UUIDV1, DATE } = require('sequelize')
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 
@@ -26,7 +27,7 @@ const Poems = db.define("Poems",
     Created: {
       type: DataTypes.STRING,
       allowNull: true,
-      default: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes()
+      default: moment().format("DD.MM.YYYY")
     },
     LikersIds: {
       type: DataTypes.ARRAY(DataTypes.STRING),

@@ -16,7 +16,9 @@ Comments.sequelize.sync();
 Poems.sequelize.sync();
 const port = 3333;
 const app = express();
-const upload = multer();
+const upload = multer({
+    limits: { fieldSize: 25 * 1024 * 1024 }
+  })
 app.use(upload.array()); 
 const host = 'localhost';
 app.use(bodyParser.json()); 

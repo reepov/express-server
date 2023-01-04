@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 
 class UserViewModel{
     
-    constructor(Id, NickName, Poems, Subscribers, isSubscribedByCurrentUser, LikedPoems, ViewedPoems){
+    constructor(Id, NickName, Poems, Subscribers, isSubscribedByCurrentUser, LikedPoems, ViewedPoems, Photo){
         this.Id = Id;
         this.NickName = NickName;
         this.Poems = Poems;
@@ -10,6 +10,7 @@ class UserViewModel{
         this.isSubscribedByCurrentUser = isSubscribedByCurrentUser
         this.LikedPoems = LikedPoems
         this.ViewedPoems = ViewedPoems
+        this.Photo = Photo;
     }
 }
 

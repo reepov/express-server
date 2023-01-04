@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const UserRouter = require("./UserController");
 const Users = require('../Models/UserModel')
 const Poems = require('../Models/PoemsModel');
+const moment = require("moment");
 const Comments = require('../Models/CommentModel'); 
 const { Sequelize, STRING } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
@@ -13,7 +14,9 @@ const CommentViewModel = require("../ViewModels/CommentViewModel");
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
 const UUIDV4 =  require('uuid');
 const { use } = require('./UserController');
-const upload = multer();
+const upload = multer({
+    limits: { fieldSize: 25 * 1024 * 1024 }
+  })
 const Op = Sequelize.Op;
 Users.sync();
 Poems.sync();
@@ -53,7 +56,7 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
             item.Id, author.NickName, item.Text, 
             item.LikersIds.filter(() => true).length, 
             item.LikersIds.indexOf(currentUserId) >= 0, 
-            item.Created, item.RepliesId, item.UpReplyId, poemId, author.Id));
+            item.Created, item.RepliesId, item.UpReplyId, poemId, author.Id, author.Photo));
         for(let j = 0; j < wholeReplyComments.length; j++)
         {
             let replyItem = wholeReplyComments[j];
@@ -67,7 +70,7 @@ PoemsRouter.get("/GetCommentsByPoemId", async function(req, res){
                     replyItem.Id, replyAuthor.NickName, replyItem.Text, 
                     replyItem.LikersIds.filter(() => true).length, 
                     replyItem.LikersIds.indexOf(currentUserId) >= 0, 
-                    replyItem.Created, replyItem.RepliesId, replyItem.UpReplyId, poemId, replyAuthor.Id));
+                    replyItem.Created, replyItem.RepliesId, replyItem.UpReplyId, poemId, replyAuthor.Id, replyAuthor.Photo));
             }
         }
     };
@@ -95,7 +98,7 @@ PoemsRouter.get("/GetCommentById", async function(req, res) {
             res.send(new CommentViewModel(comment.Id, user.NickName, 
                 comment.Text, comment.LikersIds.filter(() => true).length, 
                 comment.LikersIds.indexOf(currentId) >= 0, comment.Created, 
-                comment.RepliesId, comment.UpReplyId, comment.PoemId, user.Id));
+                comment.RepliesId, comment.UpReplyId, comment.PoemId, user.Id, user.Photo));
         }); 
 });
 
@@ -154,8 +157,12 @@ PoemsRouter.get("/GetPoemById", function(req, res){
                     item.LikersIds.indexOf(currentUserId) >= 0, 
                     item.CommentIds, item.AuthorId, item.Created, user.NickName, item.Description));
             });
-            
         });
+});
+
+PoemsRouter.get("/Redirect", function(req, res){
+    const poemId = req.query.poemId;
+    res.redirect('https://www.rustore.ru');
 });
 
 //  http://localhost:3333/api/Poems/GetListOfRandomPoems?userId=
@@ -182,6 +189,7 @@ PoemsRouter.get("/GetListOfRandomPoems", async function(_req, res){
             poems[i].LikersIds.indexOf(currentUserId) >= 0, 
             poems[i].CommentIds, poems[i].AuthorId, poems[i].Created, user.NickName, poems[i].Description));
     };
+    
     res.send(poemsToSend.sort((a, b) => Number(a.isViewedByCurrentUser) - Number(b.isViewedByCurrentUser)));
 });
 
@@ -253,7 +261,7 @@ PoemsRouter.post("/AuthorSendPoem", async function(req, res){
         ViewersIds: [],
         CommentIds: [],
         AuthorId: userId,
-        Created: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear(),
+        Created: moment().format("DD.MM.YYYY"),
         Description: description
     }).catch(a = false);
     res.send(a);
@@ -372,7 +380,7 @@ PoemsRouter.post("/SetCommentToPoem", async function(req, res){
         UserId: userId,
         Text: text,
         LikersIds: [],
-        Created: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
+        Created: moment().format("DD.MM.YYYY"),
         RepliesId: [],
         UpReplyId: null,
         PoemId: poemId
@@ -516,7 +524,7 @@ PoemsRouter.post("/SetReplyToComment", async function(req, res){
         UserId: userId,
         Text: text,
         LikersIds: [],
-        Created: today.getDate() + "." + (today.getMonth() + 1).toString() + "." + today.getFullYear() + " " + today.getHours() + ":" + today.getMinutes(),
+        Created: moment().format("DD.MM.YYYY"),
         RepliesId: [],
         UpReplyId: replyId,
         PoemId: comment.PoemId

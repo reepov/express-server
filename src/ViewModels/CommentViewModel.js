@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 
 class CommentViewModel{ 
-    constructor(CommentId, UserName, Text, Likes, isLikedByCurrentUser, Created, RepliesId, UpReplyId, PoemId, UserId){
+    constructor(CommentId, UserName, Text, Likes, isLikedByCurrentUser, Created, RepliesId, UpReplyId, PoemId, UserId, Photo){
         this.CommentId = CommentId;
         this.UserName = UserName;
         this.Text = Text;
@@ -12,6 +12,7 @@ class CommentViewModel{
         this.UpReplyId = UpReplyId;
         this.PoemId = PoemId;
         this.UserId = UserId;
+        this.Photo = Photo;
     }
 }
 
