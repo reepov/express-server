@@ -210,4 +210,49 @@ UserRouter.post("/SetAvatarToUser", async function(req, res) {
   user.save();
   res.send(true);
 });
-module.exports = UserRouter;  
+
+UserRouter.post("/ResetPasswordRequest", async function(req, res) {
+  const email = req.query.email;
+  Users.findOne({
+    where:{
+      Email: email
+    }
+  }).then(user => {
+      let transporter = nodemailer.createTransport({
+        port: 465,               // true for 465, false for other ports
+        host: "smtp.yandex.ru",
+        auth: {
+          user: 'reepov@yandex.ru',
+          pass: 'mxqjvyhptstusnji',
+        },
+        secure: true
+      })
+      let resultat = transporter.sendMail({
+        from: 'reepov@yandex.ru',
+        to: email,
+        subject: 'Смена пароля в приложении POEMS',
+        text: 'Для смены пароля перейдите по ссылке: http://185.119.56.91/api/User/LinkToResetPassword?email=' + email
+      })
+      res.send(true)
+    })
+});
+
+UserRouter.get("/LinkToResetPassword", async function(req, res){
+  const email = req.query.email;
+  res.redirect('https://www.rustore.ru');
+});
+
+UserRouter.post("/ResetPassword", async function(req, res){
+  const email = req.query.email;
+  const password = req.query.password;
+
+  const user = await Users.findOne({
+    where:{
+        Email: email
+    }
+  });
+  user.Password = MD5(password.toString()).toString();
+  user.save();
+  res.send(true);
+})
+module.exports = UserRouter;
