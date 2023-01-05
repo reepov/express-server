@@ -254,5 +254,6 @@ UserRouter.post("/ResetPassword", async function(req, res){
   user.Password = MD5(password.toString()).toString();
   user.save();
   res.send(true);
-})
+});
+
 module.exports = UserRouter;

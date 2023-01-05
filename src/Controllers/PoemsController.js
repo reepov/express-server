@@ -8,6 +8,7 @@ const Poems = require('../Models/PoemsModel');
 const moment = require("moment");
 const Comments = require('../Models/CommentModel'); 
 const { Sequelize, STRING } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const CommentViewModel = require("../ViewModels/CommentViewModel");
@@ -236,6 +237,50 @@ PoemsRouter.get("/GetListOfSubscribedPoems", async function(_req, res){
         res.send(poemsToSend.sort((a, b) => Number(a.isLikedByCurrentUser) - Number(b.isLikedByCurrentUser)));
     });
 });
+
+PoemsRouter.get("/ResultOfSearch", async function(req, res) {
+    const userId = req.query.userId;
+    const searchText = req.query.searchText;
+    let results = [];
+    if(searchText != ""){
+        results = await db.query(`SELECT "Id", "Title", "Text", "Created", "LikersIds", "ViewersIds", "CommentIds", "AuthorId", "Description" FROM "Poems" AS "Poems" WHERE ("Poems"."Title" ILIKE N'%` + searchText + `%' OR "Poems"."Text" ILIKE N'%` + searchText + `%')`, { type: QueryTypes.SELECT })
+    }
+    console.log(results)
+    if (results.length < 3) {
+      let popular = await Poems.findAll({
+        where:{
+            
+        }
+      });
+      popular.sort((a, b) => Number(b.ViewersIds.filter(() => true).length) - Number(a.ViewersIds.filter(() => true).length))
+      let i = 0;
+      while(results.length < 3) {
+        for(let j = 0; j < results.length; j++)
+        {
+            if(results[j].AuthorId != popular[i].AuthorId) results.push(popular[i]);
+            i = i + 1;
+            break;
+        }
+      }
+    }
+    let poemsToSend = [];
+      for(let k = 0; k < 3; k++)
+        {
+            let user = await Users.findOne({
+                where:{
+                    Id: results[k].AuthorId
+                }
+            });
+            poemsToSend.push(new PoemsViewModel(
+                results[k].Id, results[k].Title, results[k].Text, 
+                results[k].LikersIds.filter(() => true).length, 
+                results[k].ViewersIds?.filter(() => true).length, 
+                results[k].ViewersIds?.indexOf(userId) >= 0, 
+                results[k].LikersIds.indexOf(userId) >= 0, 
+                results[k].CommentIds, results[k].AuthorId, results[k].Created, user.NickName, results[k].Description));
+        }
+        res.send(poemsToSend);
+  });
 
 //  http://localhost:3333/api/Poems/AuthorSendPoem?userId=..title=.. (+form-data calls message)
 PoemsRouter.post("/AuthorSendPoem", async function(req, res){
