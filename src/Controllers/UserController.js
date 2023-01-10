@@ -9,6 +9,7 @@ const Users = require('../Models/UserModel');
 const Poems = require('../Models/PoemsModel');
 const Comments = require('../Models/CommentModel')
 const { Sequelize, STRING } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 const UserViewModel = require("../ViewModels/UserViewModel");
 const PoemsViewModel = require('../ViewModels/PoemsViewModel');
 const db = new Sequelize('postgresql://postgres:postgres@185.119.56.91:5432/postgres');
@@ -199,7 +200,7 @@ UserRouter.post("/SubscribeToUser", async function(req, res){
 UserRouter.post("/SetAvatarToUser", async function(req, res) {
   db.sync()
   const currentUserId = req.query.currentUserId
-  const array = req.body.array
+  const array = req.body.formData
 
   let user = await Users.findOne({
     where:{
@@ -241,6 +242,45 @@ UserRouter.get("/LinkToResetPassword", async function(req, res){
   const email = req.query.email;
   res.redirect('https://www.rustore.ru');
 });
+
+UserRouter.get("/ResultOfUserSearch", async function(req, res) {
+  const userId = req.query.userId;
+  const searchText = req.query.searchText;
+  let results = [];
+  if(searchText != ""){
+      results = await db.query(`SELECT "Id", "NickName", "DateOfCreate", "ListOfViewsPoems", "ListOfLikedPoems", "Email", "ListOfLikedComments", "Password", "SubscribersIds", "Photo" FROM "Users" AS "Users" WHERE ("Users"."NickName" ILIKE N'%` + searchText + `%')`, { type: QueryTypes.SELECT })
+      results.sort((a, b) => Number(b.SubscribersIds.filter(() => true).length) - Number(a.SubscribersIds.filter(() => true).length))
+  }
+  if (results.length < 3) {
+    let popular = await Users.findAll({
+      where:{
+          
+      }
+    });
+    popular.sort((a, b) => Number(b.SubscribersIds.filter(() => true).length) - Number(a.SubscribersIds.filter(() => true).length))
+    for(let r = 0; r < popular.length; r++)
+    {
+      for(let j = 0; j < results.length; j++)
+      {
+          if(results[j].Id == popular[r].Id) popular.splice(r, 1);
+      }
+    }
+    let i = 0;
+    while(results.length < 3) {
+      results.push(popular[i]);
+      i++;
+    }
+  }
+  let usersToSend = [];
+    for(let k = 0; k < 3; k++)
+      {
+          usersToSend.push(new UserViewModel(results[k].Id, results[k].NickName, null, results[k].SubscribersIds, 
+            results[k].SubscribersIds.indexOf(userId) >= 0,
+            null, null, results[k].Photo));
+      }
+  res.send(usersToSend);
+});
+
 
 UserRouter.post("/ResetPassword", async function(req, res){
   const email = req.query.email;

@@ -244,8 +244,8 @@ PoemsRouter.get("/ResultOfSearch", async function(req, res) {
     let results = [];
     if(searchText != ""){
         results = await db.query(`SELECT "Id", "Title", "Text", "Created", "LikersIds", "ViewersIds", "CommentIds", "AuthorId", "Description" FROM "Poems" AS "Poems" WHERE ("Poems"."Title" ILIKE N'%` + searchText + `%' OR "Poems"."Text" ILIKE N'%` + searchText + `%')`, { type: QueryTypes.SELECT })
+        results.sort((a, b) => Number(b.ViewersIds.filter(() => true).length) - Number(a.ViewersIds.filter(() => true).length))
     }
-    console.log(results)
     if (results.length < 3) {
       let popular = await Poems.findAll({
         where:{
@@ -253,14 +253,17 @@ PoemsRouter.get("/ResultOfSearch", async function(req, res) {
         }
       });
       popular.sort((a, b) => Number(b.ViewersIds.filter(() => true).length) - Number(a.ViewersIds.filter(() => true).length))
-      let i = 0;
-      while(results.length < 3) {
+      for(let r = 0; r < popular.length; r++)
+      {
         for(let j = 0; j < results.length; j++)
         {
-            if(results[j].AuthorId != popular[i].AuthorId) results.push(popular[i]);
-            i = i + 1;
-            break;
+            if(results[j].Id == popular[r].Id) popular.splice(r, 1);
         }
+      }
+      let i = 0;
+      while(results.length < 3) {
+        results.push(popular[i]);
+        i++;
       }
     }
     let poemsToSend = [];
@@ -279,7 +282,7 @@ PoemsRouter.get("/ResultOfSearch", async function(req, res) {
                 results[k].LikersIds.indexOf(userId) >= 0, 
                 results[k].CommentIds, results[k].AuthorId, results[k].Created, user.NickName, results[k].Description));
         }
-        res.send(poemsToSend);
+    res.send(poemsToSend);
   });
 
 //  http://localhost:3333/api/Poems/AuthorSendPoem?userId=..title=.. (+form-data calls message)
@@ -287,10 +290,9 @@ PoemsRouter.post("/AuthorSendPoem", async function(req, res){
     db.sync();
     const Title = req.query.title;
     console.log(Title);
-    let today = new Date();
     const userId = req.query.userId;
     const description = req.query.description
-    const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
+    const text = req.body.formData.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
     console.log(text);
     let textpoem = "";
@@ -308,7 +310,7 @@ PoemsRouter.post("/AuthorSendPoem", async function(req, res){
         AuthorId: userId,
         Created: moment().format("DD.MM.YYYY"),
         Description: description
-    }).catch(a = false);
+    });
     res.send(a);
 });
 
@@ -318,7 +320,7 @@ PoemsRouter.post("/UpdatePoem", async function(req, res) {
         const poemId = req.query.poemId;
         const title = req.query.title;
         const description = req.query.description
-        const text = req.body.message.toString().split('').reverse().join('').replace(']', '')
+        const text = req.body.formData.toString().split('').reverse().join('').replace(']', '')
                             .split('').reverse().join('').replace('[', '').split("|, ");
         let textpoem = "";
         text.forEach(item => {
